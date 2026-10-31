@@ -8,11 +8,14 @@ export const live = {
   /** pointer in normalised device coords (-1..1) */
   mouseX: 0,
   mouseY: 0,
-  /** reactor power, eased towards powerTarget each frame */
-  power: 0,
-  powerTarget: 0,
-  /** 0..1 burst of light used for mode switches; decays every frame */
-  flare: 0,
+  /** 0..1 how much the project landmarks are highlighted */
+  pins: 0,
+  /** 0 = day, 1 = night, eased */
+  night: 0,
+  /** seconds since the city started building itself (-1 = not started) */
+  buildT: -1,
+  /** landmark the camera should fly to */
+  focus: null as null | [number, number, number],
 };
 
 export const asset = (p: string) =>

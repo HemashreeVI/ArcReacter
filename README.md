@@ -1,11 +1,11 @@
-# ArcReacter
+# Portfolio · Hemashree Venugopal Indrajith
 
-Portfolio of **Hemashree Venugopal Indrajith**, in an Iron Man red-and-gold theme.
+A portfolio built around a glossy miniature 3D city on a floating platform.
 
-- **Boot intro**: a J.A.R.V.I.S.-style start-up sequence that ends by powering up the arc reactor.
-- **3D arc reactor**: built in code with React Three Fiber. It reacts to scroll and the pointer, and the camera moves around it as you scroll.
-- **Two modes**: *HUD* (dark) and *LAB* (a bright workshop with hologram projectors). They switch with a shockwave transition, without reloading the page.
-- **Project dossiers**: tilting cards that open into a full write-up with a gallery and mission log.
+- **The city is built in code** (React Three Fiber): glass towers with real window grids, moving cars, trees, parks and floating clouds. When the site loads, the buildings rise out of the platform from the centre outwards.
+- **Projects are landmarks.** Scroll to *Projects* and each of the 8 projects is a tower with a label. Tap one and the camera flies to it and opens its write-up.
+- **Day / night.** The moon button switches to night: windows light up, cars turn on their headlights and the platform rings glow.
+- The camera moves around the city as you scroll. Frosted-glass cards, smooth scrolling and scroll-triggered reveals.
 
 ## Run
 

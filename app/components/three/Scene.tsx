@@ -1,112 +1,111 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { Environment, Lightformer, Sparkles } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
-import ArcReactor from "./ArcReactor";
-import { HudWorld, LabWorld } from "./Worlds";
+import City from "./City";
+import CameraRig from "./CameraRig";
 import { live } from "@/lib/live";
-import { useStore, type Mode } from "@/lib/store";
 
-const smooth = (t: number) => t * t * (3 - 2 * t);
-
-/** Camera keyframes along the page: [scroll progress, position, look-at]. */
-const KEYS: [number, [number, number, number], [number, number, number]][] = [
-  [0.0, [0, 0, 9.5], [-3.6, 0, 0]], // hero: reactor sits right of the headline
-  [0.14, [3.5, 1.2, 9], [-2.4, 0, 0]], // profile
-  [0.36, [0, 5.5, 11], [0, 0, 0]], // projects: look down on the whole scene
-  [0.6, [-5, -0.6, 8], [1, 0, 0]], // experience
-  [0.8, [0, 1.5, 15], [0, 0, 0]], // skills & gallery: wide shot
-  [1.0, [1.5, 0.4, 8.5], [-3.2, 0, 0]], // contact: reactor beside the terminal
-];
-
-function CameraRig({ narrow }: { narrow: boolean }) {
-  const pos = useMemo(() => new THREE.Vector3(), []);
-  const look = useMemo(() => new THREE.Vector3(), []);
-  const curLook = useMemo(() => new THREE.Vector3(-3.6, 0, 0), []);
-  const a = useMemo(() => new THREE.Vector3(), []);
-  const b = useMemo(() => new THREE.Vector3(), []);
-
-  useFrame(({ camera }, dt) => {
-    const max = document.documentElement.scrollHeight - window.innerHeight;
-    live.scroll = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
-    const s = live.scroll;
-
-    let i = 0;
-    while (i < KEYS.length - 2 && s > KEYS[i + 1][0]) i++;
-    const [s0, p0, l0] = KEYS[i];
-    const [s1, p1, l1] = KEYS[i + 1];
-    const t = smooth(THREE.MathUtils.clamp((s - s0) / (s1 - s0), 0, 1));
-    pos.copy(a.fromArray(p0)).lerp(b.fromArray(p1), t);
-    look.copy(a.fromArray(l0)).lerp(b.fromArray(l1), t);
-
-    // On phones, keep the reactor centred and pull back a little.
-    if (narrow) {
-      look.x = 0;
-      pos.z += 2;
-    }
-    // Pointer parallax.
-    pos.x += live.mouseX * 0.6;
-    pos.y += live.mouseY * 0.4;
-
-    camera.position.x = THREE.MathUtils.damp(camera.position.x, pos.x, 3, dt);
-    camera.position.y = THREE.MathUtils.damp(camera.position.y, pos.y, 3, dt);
-    camera.position.z = THREE.MathUtils.damp(camera.position.z, pos.z, 3, dt);
-    curLook.x = THREE.MathUtils.damp(curLook.x, look.x, 3, dt);
-    curLook.y = THREE.MathUtils.damp(curLook.y, look.y, 3, dt);
-    curLook.z = THREE.MathUtils.damp(curLook.z, look.z, 3, dt);
-    camera.lookAt(curLook);
-  });
-  return null;
-}
-
-function Effects({ mode, low }: { mode: Mode; low: boolean }) {
-  // The postprocessing BloomEffect exposes `intensity` as a mutable property.
-  const bloom = useRef<{ intensity: number } | null>(null);
-  const hud = mode === "hud";
-  const base = hud ? 0.55 : 0.45;
+/** Sun by day, moonlight by night, eased with the city's day/night value. */
+function Lights() {
+  const hemi = useRef<THREE.HemisphereLight>(null);
+  const sun = useRef<THREE.DirectionalLight>(null);
+  const moon = useRef<THREE.DirectionalLight>(null);
   useFrame(() => {
-    if (bloom.current) bloom.current.intensity = base * (0.4 + 0.6 * live.power) + live.flare * 3;
+    const n = live.night;
+    if (hemi.current) hemi.current.intensity = 1.1 - n * 0.8;
+    if (sun.current) sun.current.intensity = 2.6 * (1 - n * 0.85);
+    if (moon.current) moon.current.intensity = n * 0.9;
   });
   return (
-    <EffectComposer multisampling={0}>
-      <Bloom
-        ref={bloom as never}
-        mipmapBlur
-        intensity={base}
-        luminanceThreshold={hud ? 0.75 : 0.98}
-        luminanceSmoothing={0.2}
-        radius={0.75}
+    <>
+      <hemisphereLight ref={hemi} args={["#d6e6ff", "#1d2f63", 1.1]} />
+      <directionalLight
+        ref={sun}
+        position={[7, 13, 6]}
+        intensity={2.6}
+        color="#fff4e6"
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.02}
+        shadow-camera-left={-10}
+        shadow-camera-right={10}
+        shadow-camera-top={10}
+        shadow-camera-bottom={-10}
+        shadow-camera-near={1}
+        shadow-camera-far={40}
       />
-      <Vignette eskil={false} offset={hud ? 0.2 : 0.35} darkness={hud ? 0.75 : 0.25} />
+      <directionalLight ref={moon} position={[-8, 10, -4]} intensity={0} color="#8fb0ff" />
+    </>
+  );
+}
+
+function Stars() {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(() => {
+    if (ref.current) ref.current.visible = live.night > 0.05;
+  });
+  return (
+    <group ref={ref}>
+      <Sparkles count={120} scale={[40, 18, 40]} position={[0, 10, 0]} size={2.2} speed={0.15} color="#cfe0ff" opacity={0.8} />
+    </group>
+  );
+}
+
+/** Soft round shadow under the floating platform. */
+function SoftShadow() {
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: /* glsl */ `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `varying vec2 vUv; void main(){ float d = length(vUv - 0.5) * 2.0; gl_FragColor = vec4(0.03, 0.06, 0.16, 0.5 * pow(1.0 - smoothstep(0.35, 1.0, d), 1.6)); }`,
+    transparent: true,
+    depthWrite: false,
+  });
+  return (
+    <mesh material={mat} rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.6, 0]}>
+      <planeGeometry args={[24, 24]} />
+    </mesh>
+  );
+}
+
+function Effects({ low }: { low: boolean }) {
+  const bloom = useRef<{ intensity: number } | null>(null);
+  useFrame(() => {
+    if (bloom.current) bloom.current.intensity = 0.35 + live.night * 0.9;
+  });
+  return (
+    <EffectComposer multisampling={low ? 0 : 4}>
+      <Bloom ref={bloom as never} mipmapBlur intensity={0.35} luminanceThreshold={0.85} luminanceSmoothing={0.2} radius={0.6} />
+      <Vignette eskil={false} offset={0.3} darkness={0.35} />
     </EffectComposer>
   );
 }
 
 export default function Scene() {
-  const mode = useStore((s) => s.mode);
-  const [{ low, narrow }] = useState(() => {
-    const narrow = window.innerWidth < 820;
-    const low = narrow || (navigator.hardwareConcurrency ?? 8) <= 4;
-    return { low, narrow };
-  });
-  const hud = mode === "hud";
-  const bg = hud ? "#0a0606" : "#efe9e2";
-
+  const [low] = useState(() => window.innerWidth < 900 || (navigator.hardwareConcurrency ?? 8) <= 4);
   return (
     <div className="scene" aria-hidden>
       <Canvas
-        dpr={[1, low ? 1.25 : 1.75]}
-        camera={{ position: [0, 0, 9.5], fov: 45, near: 0.1, far: 200 }}
-        gl={{ antialias: false, powerPreference: "high-performance" }}
+        shadows
+        dpr={[1, low ? 1.5 : 2]}
+        camera={{ position: [-17, 12.5, 22], fov: 38, near: 0.1, far: 200 }}
+        gl={{ alpha: true, antialias: false, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping }}
       >
-        <color attach="background" args={[bg]} />
-        <fog attach="fog" args={[bg, 14, hud ? 60 : 42]} />
-        <CameraRig narrow={narrow} />
-        <ArcReactor mode={mode} />
-        {hud ? <HudWorld low={low} /> : <LabWorld low={low} />}
-        <Effects mode={mode} low={low} />
+        <Environment resolution={256}>
+          <Lightformer form="rect" intensity={3} color="#ffffff" scale={[14, 5, 1]} position={[0, 9, 6]} rotation-x={Math.PI / 2.5} />
+          <Lightformer form="rect" intensity={2} color="#b9d2ff" scale={[6, 12, 1]} position={[-10, 3, 2]} rotation-y={Math.PI / 2} />
+          <Lightformer form="rect" intensity={1.5} color="#7aa2ff" scale={[6, 12, 1]} position={[10, 3, -2]} rotation-y={-Math.PI / 2} />
+          <Lightformer form="circle" intensity={2} color="#ffe9d1" scale={3} position={[6, 8, 8]} />
+        </Environment>
+        <Lights />
+        <CameraRig />
+        <City low={low} />
+        <Stars />
+        <SoftShadow />
+        <Effects low={low} />
       </Canvas>
     </div>
   );
