@@ -38,17 +38,29 @@ function canvasTex(w: number, h: number, paint: (g: CanvasRenderingContext2D) =>
   return t;
 }
 
-/** One window cell per texture repeat: a pane inside a light mullion frame. */
+/**
+ * One curtain-wall panel per texture repeat: a glass pane with a soft sheen,
+ * hairline mullions and a slim spandrel band at the floor line.
+ */
 function windowTex(pane: string, frame: string, frameW: number) {
-  return canvasTex(64, 64, (g) => {
-    g.fillStyle = frame;
-    g.fillRect(0, 0, 64, 64);
-    const fw = 64 * frameW;
-    const grd = g.createLinearGradient(0, 0, 64, 64);
-    grd.addColorStop(0, pane);
-    grd.addColorStop(1, shade(pane, -0.25));
+  return canvasTex(128, 128, (g) => {
+    const grd = g.createLinearGradient(0, 0, 0, 128);
+    grd.addColorStop(0, shade(pane, 0.18));
+    grd.addColorStop(0.55, pane);
+    grd.addColorStop(1, shade(pane, -0.12));
     g.fillStyle = grd;
-    g.fillRect(fw, fw * 1.3, 64 - fw * 2, 64 - fw * 2.3);
+    g.fillRect(0, 0, 128, 128);
+    // faint diagonal sheen so neighbouring panes don't look identical
+    const sh = g.createLinearGradient(0, 0, 128, 128);
+    sh.addColorStop(0.35, "rgba(255,255,255,0)");
+    sh.addColorStop(0.5, "rgba(255,255,255,0.10)");
+    sh.addColorStop(0.65, "rgba(255,255,255,0)");
+    g.fillStyle = sh;
+    g.fillRect(0, 0, 128, 128);
+    const fw = Math.max(2, 128 * frameW);
+    g.fillStyle = frame;
+    g.fillRect(0, 0, fw, 128); // mullion
+    g.fillRect(0, 128 - fw * 2.2, 128, fw * 2.2); // spandrel at the floor line
   });
 }
 
@@ -118,8 +130,8 @@ function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number,
 
 /* ------------------------------------------------------------------ geometry helpers */
 
-const CELL_W = 0.2; // window width in world units
-const CELL_H = 0.26; // storey height
+const CELL_W = 0.16; // panel width in world units
+const CELL_H = 0.22; // storey height
 
 /** Box whose side UVs are scaled so one window texture tile = one window. */
 function boxGeo(w: number, h: number, d: number) {
@@ -441,42 +453,43 @@ export default function City({ low }: { low: boolean }) {
     const n1 = nightTex(1), n2 = nightTex(2);
     n1.repeat.set(0.25, 0.25);
     n2.repeat.set(0.25, 0.25);
-    const glass = new THREE.MeshPhysicalMaterial({
+    // at night the glass reads darker so lit windows stand out
+    // Reflective curtain-wall glass: mostly mirror, tinted by the pane texture,
+    // with a thin-film sheen that shifts colour at grazing angles.
+    const glassBase = {
       color: "#ffffff",
-      map: windowTex("#2f63d6", "#9fb8ee", 0.1),
-      metalness: 0.35,
-      roughness: 0.16,
+      metalness: 0.92,
+      roughness: 0.04,
       clearcoat: 1,
-      clearcoatRoughness: 0.08,
+      clearcoatRoughness: 0.02,
+      iridescence: 0.18,
+      iridescenceIOR: 1.3,
       emissive: "#ffffff",
-      emissiveMap: n1,
       emissiveIntensity: 0,
-      envMapIntensity: 1.3,
+      specularIntensity: 1,
+    };
+    const glass = new THREE.MeshPhysicalMaterial({
+      ...glassBase,
+      map: windowTex("#3d74e0", "#1b2c55", 0.018),
+      emissiveMap: n1,
+      envMapIntensity: 2.2,
     });
     const silver = new THREE.MeshPhysicalMaterial({
-      color: "#ffffff",
-      map: windowTex("#5d84d4", "#eef3fc", 0.2),
-      metalness: 0.45,
-      roughness: 0.22,
-      clearcoat: 1,
-      emissive: "#ffffff",
+      ...glassBase,
+      map: windowTex("#b9cbe6", "#e9eef6", 0.022),
       emissiveMap: n2,
-      emissiveIntensity: 0,
+      envMapIntensity: 2.0,
     });
     const accent = new THREE.MeshPhysicalMaterial({
-      color: "#ffffff",
-      map: windowTex("#1d4fd8", "#7fa6ff", 0.08),
-      metalness: 0.5,
-      roughness: 0.1,
-      clearcoat: 1,
-      emissive: "#ffffff",
+      ...glassBase,
+      map: windowTex("#2a5fe8", "#0f1d44", 0.016),
       emissiveMap: n1,
-      emissiveIntensity: 0,
-      envMapIntensity: 1.6,
+      envMapIntensity: 2.6,
+      iridescence: 0.3,
     });
-    const roof = new THREE.MeshStandardMaterial({ color: "#cdd7ec", roughness: 0.6, metalness: 0.2 });
+    const roof = new THREE.MeshStandardMaterial({ color: "#aebbd6", roughness: 0.6, metalness: 0.2, envMapIntensity: 0.6 });
     const metal = new THREE.MeshStandardMaterial({ color: "#dde4f2", roughness: 0.3, metalness: 0.9 });
-    const ground = new THREE.MeshStandardMaterial({ map: groundTex(plan.parks), roughness: 0.75, metalness: 0.05 });
+    const ground = new THREE.MeshStandardMaterial({ map: groundTex(plan.parks), roughness: 0.8, metalness: 0, envMapIntensity: 0.35 });
     const slab = new THREE.MeshPhysicalMaterial({ color: "#eef2fb", metalness: 0.4, roughness: 0.18, clearcoat: 1 });
     const slab2 = new THREE.MeshPhysicalMaterial({ color: "#2b55b8", metalness: 0.75, roughness: 0.22, clearcoat: 1 });
     const glow = new THREE.MeshBasicMaterial({ color: new THREE.Color("#6fa8ff"), toneMapped: false });
@@ -523,8 +536,10 @@ export default function City({ low }: { low: boolean }) {
     mats.silver.emissiveIntensity = n * 1.3;
     mats.accent.emissiveIntensity = n * 1.8;
     mats.car.emissiveIntensity = n * 0.9;
-    mats.ground.color.setScalar(1 - n * 0.55);
-    mats.glass.envMapIntensity = 1.3 - n * 0.8;
+    mats.ground.color.setScalar(0.8 * (1 - n * 0.5));
+    mats.glass.envMapIntensity = 2.2 - n * 1.6;
+    mats.silver.envMapIntensity = 2.0 - n * 1.5;
+    mats.accent.envMapIntensity = 2.6 - n * 1.9;
     glowColor.set("#6fa8ff").multiplyScalar(1.4 + n * 2.2 + Math.sin(clock.elapsedTime * 2) * 0.15);
     mats.glow.color.copy(glowColor);
 

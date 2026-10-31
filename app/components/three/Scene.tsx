@@ -10,6 +10,32 @@ import CameraRig from "./CameraRig";
 import { live } from "@/lib/live";
 
 /** Sun by day, moonlight by night, eased with the city's day/night value. */
+/** Gradient sky dome that only exists inside the reflection environment. */
+function ReflectionSky() {
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    vertexShader: /* glsl */ `varying vec3 vW; void main(){ vW = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `
+      varying vec3 vW;
+      void main(){
+        float h = vW.y;
+        vec3 zenith = vec3(0.20, 0.33, 0.72);
+        vec3 horizon = vec3(0.80, 0.88, 1.0);
+        vec3 ground = vec3(0.03, 0.06, 0.16);
+        // bright band at the horizon, deep blue overhead, dark "city below" under it:
+        // the contrast is what makes the glass read as glass
+        vec3 c = h > 0.0 ? mix(horizon, zenith, pow(h, 0.45)) : mix(horizon * 0.45, ground, smoothstep(0.0, 0.12, -h));
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  });
+  return (
+    <mesh material={mat} scale={60}>
+      <sphereGeometry args={[1, 48, 24]} />
+    </mesh>
+  );
+}
+
 function Lights() {
   const hemi = useRef<THREE.HemisphereLight>(null);
   const sun = useRef<THREE.DirectionalLight>(null);
@@ -94,11 +120,19 @@ export default function Scene() {
         camera={{ position: [-17, 12.5, 22], fov: 38, near: 0.1, far: 200 }}
         gl={{ alpha: true, antialias: false, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping }}
       >
-        <Environment resolution={256}>
-          <Lightformer form="rect" intensity={3} color="#ffffff" scale={[14, 5, 1]} position={[0, 9, 6]} rotation-x={Math.PI / 2.5} />
-          <Lightformer form="rect" intensity={2} color="#b9d2ff" scale={[6, 12, 1]} position={[-10, 3, 2]} rotation-y={Math.PI / 2} />
-          <Lightformer form="rect" intensity={1.5} color="#7aa2ff" scale={[6, 12, 1]} position={[10, 3, -2]} rotation-y={-Math.PI / 2} />
-          <Lightformer form="circle" intensity={2} color="#ffe9d1" scale={3} position={[6, 8, 8]} />
+        <Environment resolution={512}>
+          <ReflectionSky />
+          {/* sun glint and broad soft sky panels */}
+          <Lightformer form="circle" intensity={6} color="#fff3e2" scale={2.5} position={[8, 10, 9]} />
+          <Lightformer form="rect" intensity={2.4} color="#ffffff" scale={[18, 5, 1]} position={[0, 12, 0]} rotation-x={Math.PI / 2} />
+          {/* tall strips read as neighbouring towers sliding across the glass */}
+          {[-14, -9, -4, 3, 8, 13].map((x, i) => (
+            <Lightformer key={x} form="rect" intensity={i % 2 ? 2.2 : 3.4} color={i % 3 ? "#cfe0ff" : "#ffffff"} scale={[1.2 + (i % 3), 14, 1]} position={[x, 2, -14]} />
+          ))}
+          {[-12, -5, 6, 12].map((z, i) => (
+            <Lightformer key={z} form="rect" intensity={2.6} color="#dbe7ff" scale={[1.5 + i * 0.4, 12, 1]} position={[-15, 2, z]} rotation-y={Math.PI / 2} />
+          ))}
+          <Lightformer form="rect" intensity={1.2} color="#9fbaf2" scale={[10, 10, 1]} position={[15, 3, 0]} rotation-y={-Math.PI / 2} />
         </Environment>
         <Lights />
         <CameraRig />
