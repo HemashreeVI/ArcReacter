@@ -21,5 +21,5 @@ All text, projects, experience and links live in `app/lib/site.ts`. Images go in
 
 ## Deploy
 
-Pushing to `main` deploys to GitHub Pages through `.github/workflows/deploy.yml`.
-In the repo settings, set **Pages → Source** to **GitHub Actions**.
+Pushing to `main` builds the site and publishes it to the `gh-pages` branch (`.github/workflows/deploy.yml`).
+Live at https://hemashreevi.github.io/ArcReacter/
