@@ -1,5 +1,7 @@
 # Portfolio · Hemashree Venugopal Indrajith
 
+<p align="center"><a href="https://hemashreevi.github.io/ArcReacter/"><img src="https://img.shields.io/badge/%E2%96%B6_Try_it_live-in_your_browser-6f42c1?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Try it live in your browser"></a></p>
+
 A portfolio built around a glossy miniature 3D city on a floating platform.
 
 - **The city is built in code** (React Three Fiber): glass towers with real window grids, moving cars, trees, parks and floating clouds. When the site loads, the buildings rise out of the platform from the centre outwards.
